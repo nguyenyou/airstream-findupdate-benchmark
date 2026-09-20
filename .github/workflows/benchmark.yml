@@ -44,4 +44,5 @@ jobs:
           path: |
             before/target/scala-3.9.0/airstream-findupdate-before-opt/main.js
             after/target/scala-3.9.0/airstream-findupdate-after-opt/main.js
-            *-result.json
+            before-*.json
+            after-*.json
