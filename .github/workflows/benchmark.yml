@@ -7,42 +7,51 @@ on:
 permissions:
   contents: read
 
+env:
+  BEFORE_JS: before/target/scala-3.9.0/airstream-findupdate-before-opt/main.js
+  AFTER_JS: after/target/scala-3.9.0/airstream-findupdate-after-opt/main.js
+
 jobs:
   benchmark:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "25"
       - uses: sbt/setup-sbt@v1
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
       - name: Build Scala.js bundles
         run: sbt before/fullOptJS after/fullOptJS
       - name: Measure bundles
-        id: measure
         shell: bash
         run: |
           set -euo pipefail
-          before_js=before/target/scala-3.9.0/airstream-findupdate-before-opt/main.js
-          after_js=after/target/scala-3.9.0/airstream-findupdate-after-opt/main.js
-          for match_index in 0 128 255 -1; do
-            before_result="before-${match_index}.json"
-            after_result="after-${match_index}.json"
-            bun benchmark.ts "$before_js" "$match_index" > "$before_result"
-            bun benchmark.ts "$after_js" "$match_index" > "$after_result"
+          for engine in bun node; do
+            for match_index in 0 128 255 -1; do
+              "$engine" benchmark.ts "$BEFORE_JS" "$match_index" > "before-${engine}-${match_index}.json"
+              "$engine" benchmark.ts "$AFTER_JS" "$match_index" > "after-${engine}-${match_index}.json"
+            done
           done
       - name: Write summary
-        run: >-
-          bun report.ts
-          before/target/scala-3.9.0/airstream-findupdate-before-opt/main.js
-          after/target/scala-3.9.0/airstream-findupdate-after-opt/main.js
-          before-0.json after-0.json before-128.json after-128.json
-          before-255.json after-255.json before--1.json after--1.json
-          >> "$GITHUB_STEP_SUMMARY"
+        shell: bash
+        run: |
+          set -euo pipefail
+          results=()
+          for engine in bun node; do
+            for match_index in 0 128 255 -1; do
+              results+=("before-${engine}-${match_index}.json" "after-${engine}-${match_index}.json")
+            done
+          done
+          bun report.ts "$BEFORE_JS" "$AFTER_JS" "${results[@]}" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload generated bundles and results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: airstream-findupdate-benchmark
           path: |
