@@ -3,3 +3,6 @@ before/target/
 after/target/
 before-result.json
 after-result.json
+before-*.json
+after-*.json
+benchmark-results.json
