@@ -13,6 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
       - uses: sbt/setup-sbt@v1
       - name: Build Scala.js bundles
         run: sbt before/fullOptJS after/fullOptJS
