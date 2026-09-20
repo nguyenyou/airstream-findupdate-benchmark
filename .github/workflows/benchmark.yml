@@ -42,6 +42,6 @@ jobs:
         with:
           name: airstream-findupdate-benchmark
           path: |
-            before/target/scala-3.3.3/airstream-findupdate-before-opt/main.js
-            after/target/scala-3.3.3/airstream-findupdate-after-opt/main.js
+            before/target/scala-3.9.0/airstream-findupdate-before-opt/main.js
+            after/target/scala-3.9.0/airstream-findupdate-after-opt/main.js
             *-result.json
