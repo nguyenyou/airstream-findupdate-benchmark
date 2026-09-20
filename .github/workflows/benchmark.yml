@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "25"
       - uses: sbt/setup-sbt@v1
       - name: Build Scala.js bundles
         run: sbt before/fullOptJS after/fullOptJS
