@@ -1,0 +1,53 @@
+name: Benchmark
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Measure bundles
+        id: measure
+        shell: bash
+        run: |
+          set -euo pipefail
+          before_bytes=$(wc -c < before.js)
+          after_bytes=$(wc -c < after.js)
+          before_us=$(bun benchmark.ts before.js | tee before-result.json | bun -e 'console.log(JSON.parse(await new Response(Bun.stdin).text()).medianUsPerEvent)')
+          after_us=$(bun benchmark.ts after.js | tee after-result.json | bun -e 'console.log(JSON.parse(await new Response(Bun.stdin).text()).medianUsPerEvent)')
+          size_delta=$((after_bytes - before_bytes))
+          speedup=$(bun -e "console.log((($before_us - $after_us) / $before_us * 100).toFixed(1))")
+          {
+            echo "before_bytes=$before_bytes"
+            echo "after_bytes=$after_bytes"
+            echo "size_delta=$size_delta"
+            echo "before_us=$before_us"
+            echo "after_us=$after_us"
+            echo "speedup=$speedup"
+          } >> "$GITHUB_OUTPUT"
+      - name: Write summary
+        env:
+          BEFORE_BYTES: ${{ steps.measure.outputs.before_bytes }}
+          AFTER_BYTES: ${{ steps.measure.outputs.after_bytes }}
+          SIZE_DELTA: ${{ steps.measure.outputs.size_delta }}
+          BEFORE_US: ${{ steps.measure.outputs.before_us }}
+          AFTER_US: ${{ steps.measure.outputs.after_us }}
+          SPEEDUP: ${{ steps.measure.outputs.speedup }}
+        run: |
+          {
+            echo "## Airstream findUpdate benchmark"
+            echo
+            echo "| | Before | After | Delta |"
+            echo "|---|---:|---:|---:|"
+            echo "| Bundle | ${BEFORE_BYTES} bytes | ${AFTER_BYTES} bytes | ${SIZE_DELTA} bytes |"
+            echo "| Runtime | ${BEFORE_US} µs/event | ${AFTER_US} µs/event | ${SPEEDUP}% faster |"
+            echo
+            echo "Benchmark: Vector size 256, match at index 0, 15 rounds, 10,000 measured updates per round."
+          } >> "$GITHUB_STEP_SUMMARY"

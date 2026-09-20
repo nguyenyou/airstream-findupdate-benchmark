@@ -1,0 +1,7 @@
+{
+  "name": "airstream-findupdate-benchmark",
+  "private": true,
+  "scripts": {
+    "benchmark": "bun benchmark.ts"
+  }
+}
