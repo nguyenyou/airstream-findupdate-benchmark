@@ -13,15 +13,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+      - uses: sbt/setup-sbt@v1
+      - name: Build Scala.js bundles
+        run: sbt before/fullOptJS after/fullOptJS
       - name: Measure bundles
         id: measure
         shell: bash
         run: |
           set -euo pipefail
-          before_bytes=$(wc -c < before.js)
-          after_bytes=$(wc -c < after.js)
-          before_us=$(bun benchmark.ts before.js | tee before-result.json | bun -e 'console.log(JSON.parse(await new Response(Bun.stdin).text()).medianUsPerEvent)')
-          after_us=$(bun benchmark.ts after.js | tee after-result.json | bun -e 'console.log(JSON.parse(await new Response(Bun.stdin).text()).medianUsPerEvent)')
+          before_js=before/target/scala-3.3.3/airstream-findupdate-before-opt/main.js
+          after_js=after/target/scala-3.3.3/airstream-findupdate-after-opt/main.js
+          before_bytes=$(wc -c < "$before_js")
+          after_bytes=$(wc -c < "$after_js")
+          before_us=$(bun benchmark.ts "$before_js" | tee before-result.json | bun -e 'console.log(JSON.parse(await new Response(Bun.stdin).text()).medianUsPerEvent)')
+          after_us=$(bun benchmark.ts "$after_js" | tee after-result.json | bun -e 'console.log(JSON.parse(await new Response(Bun.stdin).text()).medianUsPerEvent)')
           size_delta=$((after_bytes - before_bytes))
           speedup=$(bun -e "console.log((($before_us - $after_us) / $before_us * 100).toFixed(1))")
           {
@@ -51,3 +56,12 @@ jobs:
             echo
             echo "Benchmark: Vector size 256, match at index 0, 15 rounds, 10,000 measured updates per round."
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload generated bundles and results
+        uses: actions/upload-artifact@v4
+        with:
+          name: airstream-findupdate-benchmark
+          path: |
+            before/target/scala-3.3.3/airstream-findupdate-before-opt/main.js
+            after/target/scala-3.3.3/airstream-findupdate-after-opt/main.js
+            before-result.json
+            after-result.json
