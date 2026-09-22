@@ -1,0 +1,65 @@
+name: Airstream application bundle
+
+on:
+  workflow_dispatch:
+  push:
+
+permissions:
+  contents: read
+
+env:
+  BEFORE_COMMIT: 5be97bf855eef6b76caebec50740af6588a12e64
+  AFTER_COMMIT: 18333ec1b2aa26f6fcc5c6304cce058aa1ed68a4
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+      - uses: sbt/setup-sbt@v1
+      - name: Build application bundles from Airstream sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variant in before after; do
+            commit="${BEFORE_COMMIT}"
+            if [[ "$variant" == "after" ]]; then commit="${AFTER_COMMIT}"; fi
+            git clone --quiet https://github.com/nguyenyou/Airstream.git "airstream-$variant"
+            git -C "airstream-$variant" checkout --quiet "$commit"
+            cp AirstreamBundleApp.scala "airstream-$variant/src/main/scala/AirstreamBundleApp.scala"
+            (
+              cd "airstream-$variant"
+              sbt "set Compile / mainClass := Some(\"AirstreamBundleApp\")" fullOptJS
+            )
+          done
+      - name: Measure application bundle delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          before_js=$(find airstream-before/target -path '*/airstream-opt/main.js' -print -quit)
+          after_js=$(find airstream-after/target -path '*/airstream-opt/main.js' -print -quit)
+          before_size=$(wc -c < "$before_js")
+          after_size=$(wc -c < "$after_js")
+          delta=$((after_size - before_size))
+          {
+            echo "## Airstream application bundle"
+            echo ""
+            echo "The same small Scala.js application was linked against Airstream before and after the Vector findUpdate change."
+            echo ""
+            echo "- Before commit: `${BEFORE_COMMIT}` — ${before_size} bytes"
+            echo "- After commit: `${AFTER_COMMIT}` — ${after_size} bytes"
+            echo "- Delta: ${delta} bytes"
+          } >> "$GITHUB_STEP_SUMMARY"
+          cp "$before_js" airstream-before.js
+          cp "$after_js" airstream-after.js
+      - name: Upload application bundles
+        uses: actions/upload-artifact@v5
+        with:
+          name: airstream-application-bundles
+          path: |
+            airstream-before.js
+            airstream-after.js
